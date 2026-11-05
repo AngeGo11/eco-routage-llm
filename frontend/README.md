@@ -1,10 +1,21 @@
-# Frontend Éco-routage — étape 1 : structure
+# Éco-routage — simulateur énergétique
 
-Socle indépendant React + TypeScript + Vite. Cette étape ne connecte **pas** encore le calculateur Python et n’affiche **aucune estimation réelle**.
+Interface React + TypeScript + Vite, avec une disposition de bureau en deux colonnes : **résultats et détail des calculs à gauche, prompt et paramètres à droite**. Sur mobile, le formulaire passe avant les résultats.
 
-## Démarrage
+## Lancer l'application (deux terminaux)
 
-Prérequis : Node.js 20.19+ ou 22.12+ et npm.
+Depuis la racine du dépôt, installer les dépendances de l'estimateur ET de l'API Python :
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt -r api/requirements.txt
+python -m uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Sur Windows, activer l'environnement avec `.venv\\Scripts\\activate`.
+
+Dans un autre terminal :
 
 ```bash
 cd frontend
@@ -12,26 +23,45 @@ npm install
 npm run dev
 ```
 
-Puis ouvrir http://localhost:5173. Contrôles : `npm run typecheck` et `npm run build`.
+Ouvrir http://localhost:5173. Si votre API utilise un port différent, renseignez `VITE_API_BASE_URL` dans `frontend/.env` en vous inspirant de `.env.example`.
 
-## Architecture prévue
+## Prérequis pour obtenir des chiffres réels
 
-- `src/App.tsx` : accueil provisoire et navigation.
-- `src/styles/` : styles globaux ; futurs tokens et thèmes.
-- `src/components/` : futurs éléments UI partagés.
-- `src/features/` : futurs modules estimation, comparaison et paramétrage.
-- `src/services/` : futur client HTTP typé.
-- `src/types/` : futurs contrats TypeScript avec l’API.
+Le moteur requiert impérativement `source_données/compareAI/conversations.parquet`. Ce jeu de données n'est **pas** inclus dans GitHub. La source ML.ENERGY demande `source_données/ml-energy-v3/runs/llm.parquet`, en plus des données CompareAI nécessaires à la calibration. Sans fichier CompareAI, l'interface affiche l'absence des données et désactive le calcul ; elle ne fabrique pas de chiffres.
 
-Les répertoires futurs seront créés avec leurs premières implémentations ; Git ne suit pas les dossiers vides.
+L'API ne fait **pas** d'appels à un fournisseur de modèles IA. Elle lance `estimateur_v0.py` en local et lit sa sortie JSON optionnelle (`--json-line`). Le processus peut être coûteux sur les premières requêtes et le bouton « Annuler » interrompt l'attente du navigateur, sans forcément arrêter le processus déjà lancé sur le serveur.
 
-## Prochaines étapes
+## Comprendre l'interface
 
-1. Valider l’arborescence, la navigation et les principes de design.
-2. Construire le formulaire d’estimation et ses états UX.
-3. Exposer le calculateur existant via un backend API Python (sans inventer de résultats).
-4. Connecter les résultats, évaluations et visualisations ; ajouter tests et vérifications d’accessibilité.
+- **Colonne gauche** : état vide explicite, recommandation calculée, énergie estimée en Wh, nombre de modèles évalués, histogramme relatif et détails d'une ligne au clic. La recommandation et le minimum énergétique peuvent différer si le filtre de réactions s'applique.
+- **Colonne droite** : prompt, approximation de tokens d'entrée, source (CompareAI / ML.ENERGY), variante énergétique, seuils de réactions, bouton d'estimation et états connexion/chargement/erreur.
+- **Méthodologie** : résultats estimés, score de qualité historique, contraintes de comparaison entre les sources et configurations GPU.
 
-## Références ECC
+## Structure
 
-Inspiré des compétences `frontend-design-direction`, `design-system`, `frontend-a11y`, `frontend-patterns` de [affaan-m/ECC](https://github.com/affaan-m/ECC). Les principes sont adaptés au projet, sans importer l’exécution de scripts ou hooks tiers.
+```text
+frontend/
+  src/
+    App.tsx
+    components/ResultWorkspace.tsx
+    services/estimation.ts
+    types/estimation.ts
+    styles/globals.css
+```
+
+## Vérifications
+
+```bash
+cd frontend
+npm run typecheck
+npm run build
+cd ..
+python -m pip install -r api/requirements-dev.txt
+python -m unittest discover -s api/tests -v
+```
+
+Le workflow GitHub Actions `.github/workflows/frontend-api.yml` automatise la compilation et les tests du contrat API. Les tests HTTP sont simulés sans données privées.
+
+## Guides ECC consultés
+
+Principes adaptés de `frontend-design-direction`, `design-system`, `frontend-a11y`, `frontend-patterns`, `react-patterns`, `api-design`, `react-testing` dans le dépôt [affaan-m/ECC](https://github.com/affaan-m/ECC). Aucun script externe ECC n'est exécuté.
