@@ -70,6 +70,19 @@ npm run test:e2e   # Playwright (nécessite : npx playwright install chromium)
 
 La seule validation complète du calcul réel nécessite les données CompareAI locales non publiques ; aucun test d'intégration sur ce jeu de données n'est effectué en CI.
 
+## Sprint historique et comparaisons sauvegardées
+
+Le bouton **Historique** en haut de l'interface ouvre le journal local des **20 dernières estimations réussies**. L'utilisateur peut :
+- rouvrir un résultat précédent et ses paramètres sans relancer l'API ;
+- enregistrer jusqu'à cinq comparaisons entre deux modèles par analyse, puis les rouvrir ;
+- supprimer une comparaison, une analyse ou l'intégralité de l'historique.
+
+**Confidentialité :** par défaut, l'historique est uniquement conservé en mémoire pendant la session de cet onglet. Aucun prompt n'est enregistré dans le stockage durable du navigateur sans activation volontaire de « Conserver mes analyses sur cet appareil ». Une fois activée, cette option écrit les prompts, paramètres et résultats **en clair dans le localStorage du navigateur**. Ne l'utilisez pas sur un ordinateur partagé pour des prompts sensibles. Désactiver l'option efface les données sauvegardées de cet espace local ; l'historique de session reste disponible jusqu'au rechargement. Les données ne sont pas synchronisées entre navigateurs ou appareils.
+
+**Reproductibilité :** l'historique garde un instantané des résultats du moteur au moment de l'estimation. Les données de référence ou la calibration peuvent avoir changé depuis ; rouvrir une analyse est une consultation, **pas un nouveau calcul**. Relancez l'estimation pour actualiser ses valeurs.
+
+Les tests Playwright vérifient aussi la sauvegarde opt-in, la restauration, la suppression de comparaisons et les interactions au clavier.
+
 ## Vérifications
 
 ```bash
