@@ -1,0 +1,17 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.Python
+.DS_Store
+.streamlit/secrets.toml
+*.log
+
+# Données CompareAI volumineuses (à obtenir séparément)
+source_données/compareAI/
+source_données/externe_hf/
+
+# Caches / artefacts locaux
+.pytest_cache/
+.ipynb_checkpoints/
+*.parquet.bak
