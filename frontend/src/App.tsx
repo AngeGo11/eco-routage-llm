@@ -1,92 +1,125 @@
-import { useState } from "react";
-import { ArrowDownRight, ArrowUpRight, Check, ChevronDown, Command, Leaf, Menu, MoveUpRight, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
+import { ArrowUpRight, Check, ChevronDown, CircleAlert, Clock3, ExternalLink, Leaf, LoaderCircle, RotateCcw, Send, SlidersHorizontal, X } from "lucide-react";
+import ResultWorkspace from "./components/ResultWorkspace";
+import { estimatePrompt, getHealth } from "./services/estimation";
+import type { EnergyModel, EnergySource, EstimateResponse, HealthResponse } from "./types/estimation";
 
-const models = ["CompareAI", "ML.ENERGY"] as const;
+const methods: { id: EnergyModel; label: string }[] = [
+  { id: "power-law", label: "V0.2 · Loi de puissance" },
+  { id: "input-output", label: "V0.2 · Régression additive" },
+  { id: "output-only", label: "V0.1 · Sortie seule" },
+];
 
 export default function App() {
   const [prompt, setPrompt] = useState("");
-  const [source, setSource] = useState<(typeof models)[number]>("CompareAI");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const count = Math.ceil(prompt.length / 4);
-  return (
-    <div className="site">
-      <header className="topbar">
-        <a href="#accueil" className="identity" aria-label="Éco-routage, accueil">
-          <span className="identity-symbol"><Leaf size={19} strokeWidth={2.3}/></span>
-          <span>éco<span className="identity-slash">/</span>routage</span>
-          <span className="identity-edition">RESEARCH EDITION</span>
-        </a>
-        <nav className={menuOpen ? "nav open" : "nav"} aria-label="Navigation principale">
-          <a className="nav-active" href="#atelier" onClick={() => setMenuOpen(false)}>L'atelier <span>01</span></a>
-          <a href="#methode" onClick={() => setMenuOpen(false)}>La méthode <span>02</span></a>
-          <a href="#about" onClick={() => setMenuOpen(false)}>À propos <span>03</span></a>
-        </nav>
-        <span className="topbar-label"><span className="signal"/> PROTOTYPE · V0.2</span>
-        <button className="mobile-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"} aria-expanded={menuOpen}>{menuOpen ? <X size={22}/> : <Menu size={22}/>}</button>
-      </header>
+  const [source, setSource] = useState<EnergySource>("compareai");
+  const [method, setMethod] = useState<EnergyModel>("power-law");
+  const [minReactions, setMinReactions] = useState(100);
+  const [reactionThreshold, setReactionThreshold] = useState(0.65);
+  const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [checking, setChecking] = useState(true);
+  const [disconnected, setDisconnected] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<EstimateResponse | null>(null);
+  const requestController = useRef<AbortController | null>(null);
 
-      <main id="accueil">
-        <section className="hero" aria-labelledby="hero-title">
-          <div className="hero-topline"><span>UN LABORATOIRE POUR L'IA RESPONSABLE</span><span>48°06′N / 01°40′W <span className="topline-sep">·</span> RENNES, FR</span></div>
-          <div className="hero-body">
-            <div className="hero-copy">
-              <span className="kicker"><span className="kicker-line"/> ÉTUDE N° 001 — EFFICACITÉ ÉNERGÉTIQUE</span>
-              <h1 id="hero-title">Chaque prompt<br/>a une <em>empreinte.</em></h1>
-              <p className="hero-description">Tous les modèles d'IA ne consomment pas la même énergie. Comprendre la différence, c'est déjà mieux choisir.</p>
-              <a className="explore-link" href="#atelier"><span>Explorer l'atelier</span><span className="explore-icon"><ArrowDownRight size={19}/></span></a>
-            </div>
-            <div className="visual" aria-label="Illustration abstraite de chemins d'acheminement vers plusieurs modèles d'IA" role="img">
-              <div className="visual-grid"/>
-              <span className="visual-corner top-left">FIG. 01</span><span className="visual-corner top-right">ROUTAGE INTELLIGENT</span>
-              <svg className="network" viewBox="0 0 520 440" fill="none" aria-hidden="true">
-                <path d="M52 218 H164 C211 218 206 98 278 98 H465" className="path secondary"/>
-                <path d="M52 218 H196 C236 218 230 218 278 218 H465" className="path primary"/>
-                <path d="M52 218 H164 C211 218 206 337 278 337 H465" className="path secondary"/>
-                <path d="M52 218 H164 C211 218 206 98 278 98 H465" className="path flow"/>
-                <circle cx="52" cy="218" r="10" fill="#EBE6DB" stroke="#203E32" strokeWidth="3"/>
-                <circle cx="465" cy="98" r="8" fill="#D3D7CA" stroke="#304D3F" strokeWidth="2"/>
-                <circle cx="465" cy="218" r="11" fill="#E87747" stroke="#E87747" strokeWidth="2"/>
-                <circle cx="465" cy="337" r="8" fill="#D3D7CA" stroke="#304D3F" strokeWidth="2"/>
-                <circle cx="465" cy="218" r="18" stroke="#E87747" strokeOpacity=".45"/>
-              </svg>
-              <span className="network-source">PROMPT <span>ENTRÉE</span></span>
-              <span className="network-dest one">MODÈLE A <span>TRAJET 01</span></span>
-              <span className="network-dest two">MODÈLE B <span>TRAJET 02</span></span>
-              <span className="network-dest three">MODÈLE C <span>TRAJET 03</span></span>
-              <div className="visual-caption"><span className="caption-cross">✳</span> Un même besoin.<br/>Plusieurs chemins possibles.</div>
-              <span className="visual-corner bottom-right">SCHÉMA CONCEPTUEL · NON MESURÉ</span>
-            </div>
-          </div>
-          <div className="hero-baseline"><span><span className="asterisk">✳</span> LA SOBRIÉTÉ COMME VARIABLE DE DÉCISION</span><span>SCROLL TO EXPLORE <ArrowDownRight size={13}/></span></div>
-        </section>
+  useEffect(() => {
+    const controller = new AbortController();
+    getHealth(controller.signal).then(value => {
+      setHealth(value); setDisconnected(false);
+    }).catch((reason: unknown) => {
+      if (!(reason instanceof Error && reason.name === "AbortError")) setDisconnected(true);
+    }).finally(() => { if (!controller.signal.aborted) setChecking(false); });
+    return () => { controller.abort(); requestController.current?.abort(); };
+  }, []);
 
-        <section className="workspace" id="atelier" aria-labelledby="workspace-title">
-          <div className="section-meta"><span>01 / L'ATELIER</span><span>VOTRE POINT DE DÉPART <ArrowUpRight size={14}/></span></div>
-          <div className="workspace-layout">
-            <div className="workspace-heading">
-              <h2 id="workspace-title">Et si on commençait<br/><em>par votre question ?</em></h2>
-              <p>Posez les bases d'une estimation. L'interface de calcul sera reliée au moteur Python dans la prochaine étape.</p>
-              <div className="annotation"><span className="annotation-index">NOTE / 01</span><p>Une estimation n'est pas une mesure électrique réelle. Les limites méthodologiques restent visibles.</p></div>
-            </div>
-            <div className="prompt-panel">
-              <div className="panel-heading"><span><span className="panel-dot"/> LE BANC D'ESSAI</span><span>MODULE EN PRÉPARATION</span></div>
-              <label htmlFor="prompt" className="field-label">01 — Votre prompt</label>
-              <textarea id="prompt" value={prompt} onChange={e=>setPrompt(e.target.value)} maxLength={4000} placeholder="Ex. Explique-moi le fonctionnement des réseaux de neurones en trois points simples…" rows={5}/>
-              <div className="field-details"><span><Command size={13}/> {prompt.length} caractères</span><span>≈ {count} tokens d'entrée <span className="subtle">(approximation)</span></span></div>
-              <div className="divider"/>
-              <fieldset><legend className="field-label">02 — Source des données</legend><div className="segment">{models.map(m=><button key={m} type="button" aria-pressed={source===m} onClick={()=>setSource(m)} className={source===m?"selected":""}>{source===m && <Check size={14}/>} {m}</button>)}</div></fieldset>
-              <div className="panel-foot"><span>Estimation énergétique <strong>non encore connectée</strong></span><button type="button" className="estimate-button" disabled aria-describedby="estimate-help">Calcul bientôt disponible <MoveUpRight size={17}/></button></div>
-              <p className="screen-reader-only" id="estimate-help">Le calcul des estimations sera ajouté lors de l'intégration du moteur Python.</p>
-            </div>
-          </div>
-        </section>
+  async function refresh() {
+    setChecking(true); setDisconnected(false);
+    try { setHealth(await getHealth()); }
+    catch { setDisconnected(true); setHealth(null); }
+    finally { setChecking(false); }
+  }
+  function resetResult() {
+    requestController.current?.abort();
+    requestController.current = null;
+    setLoading(false); setError(null); setResult(null);
+  }
+  function cancel() { requestController.current?.abort(); requestController.current = null; setLoading(false); }
 
-        <section className="method" id="methode" aria-labelledby="method-title">
-          <div className="section-meta"><span>02 / LA MÉTHODE</span><span>DU PROMPT À LA DÉCISION</span></div>
-          <div className="method-layout"><div><span className="method-eyebrow">L'IDÉE EN TROIS TEMPS</span><h2 id="method-title">Moins d'intuition.<br/><em>Plus de contexte.</em></h2></div><div className="method-steps"><article><span>01</span><div><h3>Comprendre la demande</h3><p>Approcher le volume de tokens pour caractériser le prompt.</p></div></article><article><span>02</span><div><h3>Estimer, sans surpromettre</h3><p>Utiliser les données et les méthodes disponibles pour comparer les consommations estimées.</p></div></article><article><span>03</span><div><h3>Choisir avec discernement</h3><p>Lire les compromis entre consommation énergétique et signaux de qualité.</p></div></article></div></div>
-        </section>
-      </main>
-      <footer className="bottom" id="about"><span className="footer-brand">éco<span>/</span>routage</span><span>Explorer le coût invisible de l'intelligence artificielle.</span><span>PROJET EXPÉRIMENTAL · 2026 <ChevronDown size={14}/></span></footer>
-    </div>
-  );
+  async function runEstimation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (loading) return;
+    if (!prompt.trim()) { setError("Saisissez un prompt pour démarrer une estimation."); return; }
+    resetResult();
+    const controller = new AbortController();
+    requestController.current = controller;
+    setLoading(true);
+    try {
+      const response = await estimatePrompt({
+        prompt: prompt.trim(), energy_source: source,
+        energy_model: source === "mlenergy" ? "output-only" : method,
+        min_reactions: minReactions,
+        reaction_threshold: reactionThreshold,
+        top: 8,
+      }, controller.signal);
+      if (!controller.signal.aborted) setResult(response);
+    } catch (reason) {
+      if (!controller.signal.aborted) setError(reason instanceof TypeError
+        ? "Impossible de contacter l'API locale. Vérifiez le démarrage du serveur FastAPI."
+        : reason instanceof Error ? reason.message : "Une erreur inattendue est survenue.");
+    } finally {
+      if (!controller.signal.aborted) { setLoading(false); requestController.current = null; }
+    }
+  }
+
+  const missingCompareAI = health?.compareai_available === false;
+  const missingMLEnergy = source === "mlenergy" && health?.mlenergy_available === false;
+  const blocked = checking || disconnected || missingCompareAI || missingMLEnergy;
+  const approxTokens = prompt.length ? Math.max(1, Math.ceil(prompt.length / 4)) : 0;
+
+  return <div className="application" id="haut">
+    <header className="app-header">
+      <a className="logo" href="#haut" aria-label="Éco-routage, retour en haut"><span className="logo-icon"><Leaf size={19} strokeWidth={2.1}/></span><span>éco<span className="logo-divider">/</span>routage</span></a>
+      <span className="logo-subline">ENERGY INTELLIGENCE LAB</span>
+      <nav className="header-links" aria-label="Navigation de l'application"><a className="current" href="#resultats">Observatoire</a><a href="#composer">Simulateur</a><a href="#methode">Méthode</a></nav>
+      <span className="header-version"><span className="header-bullet"/> PROTOTYPE V0.2</span>
+    </header>
+    <main className="split-layout">
+      <ResultWorkspace result={result} loading={loading} error={error} />
+      <aside className="composer-column" id="composer" aria-labelledby="composer-title">
+        <div className="composer-inner">
+          <div className="composer-top"><span>01 / SIMULATEUR</span><span className="composer-top-icon"><SlidersHorizontal size={17}/></span></div>
+          <div className="composer-heading"><span className="composer-kicker">VOTRE ESPACE D'EXPÉRIMENTATION</span><h2 id="composer-title">Posez la question.<br/><em>Mesurez l'impact.</em></h2><p>Décrivez ce que vous demanderiez à une IA. Le moteur comparera l'énergie que différents modèles pourraient mobiliser.</p></div>
+          <form className="prompt-form" onSubmit={runEstimation}>
+            <div className="form-section-heading"><label htmlFor="prompt">01 <span>LE PROMPT À ANALYSER</span></label><span className="form-hint-light">MAX. 4 000 CARACTÈRES</span></div>
+            <div className="prompt-field">
+              <textarea id="prompt" name="prompt" value={prompt} maxLength={4000} rows={7} required aria-describedby="prompt-counter" onChange={event => { setPrompt(event.target.value); resetResult(); }} placeholder="Ex. Explique en quelques phrases les avantages et les limites des modèles de langage…" />
+              <div className="prompt-counter" id="prompt-counter"><span>{prompt.length} / 4 000 CARACTÈRES</span><span>≈ {approxTokens} TOKENS</span></div>
+            </div>
+            <div className="form-section-heading source-title"><span>02 <span>LES DONNÉES DE RÉFÉRENCE</span></span></div>
+            <div className="source-picker" role="group" aria-label="Source des facteurs énergétiques">
+              <button type="button" className={source === "compareai" ? "source-option active" : "source-option"} aria-pressed={source === "compareai"} onClick={() => { setSource("compareai"); resetResult(); }}><span className="source-radio">{source === "compareai" && <Check size={12}/>}</span><span><strong>CompareAI</strong><small>Référence énergétique estimée</small></span></button>
+              <button type="button" className={source === "mlenergy" ? "source-option active" : "source-option"} aria-pressed={source === "mlenergy"} onClick={() => { setSource("mlenergy"); resetResult(); }}><span className="source-radio">{source === "mlenergy" && <Check size={12}/>}</span><span><strong>ML.ENERGY</strong><small>Facteurs GPU agrégés</small></span></button>
+            </div>
+            <div className="select-label"><label htmlFor="method">MODÈLE DE CALCUL</label><span>03</span></div>
+            <div className="select-shell"><select id="method" name="method" value={source === "mlenergy" ? "output-only" : method} disabled={source === "mlenergy"} onChange={event => {setMethod(event.target.value as EnergyModel);resetResult();}}>{methods.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</select><ChevronDown size={17} aria-hidden="true"/></div>
+            {source === "mlenergy" && <p className="form-helper">ML.ENERGY impose le calcul « sortie seule ».</p>}
+            <details className="advanced"><summary><span>Affiner le filtre de qualité</span><span>OPTIONNEL <ChevronDown size={16}/></span></summary><div className="advanced-content"><label htmlFor="reactions-min">Réactions historiques minimales</label><input id="reactions-min" type="number" min="1" max="10000" step="1" required value={minReactions} onChange={event=>{setMinReactions(Number(event.target.value));resetResult();}}/><label htmlFor="reaction-threshold">Seuil de score de réactions <strong>{Math.round(reactionThreshold * 100)} %</strong></label><input id="reaction-threshold" type="range" min="0" max="1" step="0.01" value={reactionThreshold} onChange={event=>{setReactionThreshold(Number(event.target.value));resetResult();}} /><p>Le score repose sur les réactions des utilisateurs historiques ; ce n'est pas une garantie de qualité.</p></div></details>
+            <div className="api-status" role="status"><span className={checking ? "status-light pending" : blocked ? "status-light offline" : "status-light available"}/><span>{checking ? "Connexion au moteur en cours…" : disconnected ? "API Python inaccessible." : missingCompareAI ? "Jeu de données CompareAI manquant sur le serveur." : missingMLEnergy ? "Données ML.ENERGY manquantes." : "Moteur disponible — calcul sur données locales."}</span>{!checking && blocked && <button type="button" onClick={refresh} aria-label="Vérifier à nouveau la disponibilité du moteur"><RotateCcw size={15}/></button>}</div>
+            {blocked && !checking && <p className="api-help">{disconnected ? <>Démarrez l'API avec <code>python -m uvicorn api.main:app --reload --port 8000</code>.</> : missingCompareAI ? <>Ajoutez <code>source_données/compareAI/conversations.parquet</code> sur le serveur.</> : <>Vérifiez la présence des fichiers Parquet ML.ENERGY.</>}</p>}
+            {error && <div className="error-banner" role="alert"><CircleAlert size={17}/><span>{error}</span></div>}
+            <div className="action-wrap">{loading ? <button type="button" className="submit-button abort" onClick={cancel}><X size={18}/> Annuler l'attente</button> : <button type="submit" className="submit-button" disabled={blocked || !prompt.trim()}><span>Lancer l'estimation</span><span className="submit-arrow">{blocked ? <Clock3 size={19}/> : <Send size={19}/>}</span></button>}</div>
+            {loading && <div className="loading-indicator" role="status"><LoaderCircle size={16} className="rotate" /> Traitement en cours ; le premier calcul peut prendre du temps.</div>}
+          </form>
+          <div className="composer-notice"><div className="notice-icon"><InfoIcon/></div><p><strong>À savoir.</strong> Aucune réponse n'est générée par l'IA. Le prompt reste dans votre environnement local ; seules des estimations issues des jeux de données sont calculées.</p></div>
+          <div className="composer-bottom"><span>ÉCO-ROUTAGE · PROTOTYPE EXPÉRIMENTAL</span><a href="https://github.com/AngeGo11/eco-routage-llm" target="_blank" rel="noopener noreferrer">SOURCE <ExternalLink size={13}/></a></div>
+        </div>
+      </aside>
+    </main>
+    <footer className="global-footer"><span>© 2026 ÉCO-ROUTAGE · RECHERCHE SUR LA SOBRIÉTÉ DE L'IA</span><span>LES CHIFFRES SONT DES ESTIMATIONS, PAS DES MESURES GPU DIRECTES. <ArrowUpRight size={13}/></span></footer>
+  </div>;
 }
+
+function InfoIcon() { return <CircleAlert size={19} strokeWidth={1.8}/> }
