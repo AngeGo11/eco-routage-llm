@@ -77,7 +77,7 @@ def estimate(request: EstimateRequest) -> dict:
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONUTF8"] = "1"
     args = [
-        sys.executable, str(ESTIMATOR), "--prompt", prompt,
+        sys.executable, str(ESTIMATOR), f"--prompt={prompt}",
         "--energy-source", request.energy_source,
         "--energy-model", request.energy_model,
         "--min-reactions", str(request.min_reactions),
