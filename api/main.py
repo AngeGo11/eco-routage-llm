@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 ROOT = Path(__file__).resolve().parents[1]
 ESTIMATOR = ROOT / "estimateur_v0.py"
 COMPAREAI = ROOT / "source_données" / "compareAI" / "conversations.parquet"
+REACTIONS = ROOT / "source_données" / "compareAI" / "reactions.parquet"
 MLENERGY = ROOT / "source_données" / "ml-energy-v3" / "runs" / "llm.parquet"
 JSON_PREFIX = "ECO_ROUTAGE_JSON:"
 
@@ -50,10 +51,11 @@ def parse_estimator_output(stdout: str) -> dict:
 
 @app.get("/api/health")
 def health() -> dict:
-    available = COMPAREAI.is_file()
+    available = COMPAREAI.is_file() and REACTIONS.is_file()
     return {
         "status": "ready" if available else "missing_data",
-        "compareai_available": available,
+        "compareai_available": COMPAREAI.is_file(),
+        "reactions_available": REACTIONS.is_file(),
         "mlenergy_available": MLENERGY.is_file(),
     }
 
@@ -68,6 +70,8 @@ def estimate(request: EstimateRequest) -> dict:
             status_code=503,
             detail="Données CompareAI manquantes. Placez conversations.parquet dans source_données/compareAI/ sur le serveur.",
         )
+    if not REACTIONS.is_file():
+        raise HTTPException(status_code=503, detail="Données de réactions manquantes. Placez reactions.parquet dans source_données/compareAI/.")
     if request.energy_source == "mlenergy" and not MLENERGY.is_file():
         raise HTTPException(
             status_code=503,
@@ -82,7 +86,7 @@ def estimate(request: EstimateRequest) -> dict:
         "--energy-model", request.energy_model,
         "--min-reactions", str(request.min_reactions),
         "--reaction-threshold", str(request.reaction_threshold),
-        "--top", str(request.top), "--json-line",
+        "--top", str(request.top), "--json-line", "--calibration-cache",
     ]
     try:
         result = subprocess.run(
