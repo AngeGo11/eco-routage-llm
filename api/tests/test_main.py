@@ -26,6 +26,14 @@ class ContractTests(unittest.TestCase):
             response = client.post("/api/estimate", json={"prompt": "test"})
         self.assertEqual(response.status_code, 503)
 
+    def test_missing_reactions_dataset(self):
+        with patch("api.main.COMPAREAI") as data, patch("api.main.REACTIONS") as reactions:
+            data.is_file.return_value = True
+            reactions.is_file.return_value = False
+            response = client.post("/api/estimate", json={"prompt": "test"})
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("reactions.parquet", response.json()["detail"])
+
     def test_empty_prompt_rejected(self):
         response = client.post("/api/estimate", json={"prompt": "   "})
         self.assertEqual(response.status_code, 422)
@@ -46,6 +54,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), payload)
         self.assertIn("--json-line", run.call_args.args[0])
+        self.assertIn("--calibration-cache", run.call_args.args[0])
 
     def test_prompt_starting_with_dash_is_not_parsed_as_option(self):
         payload = {"results": [{"name": "Modèle A", "estimated_wh": 0.01}]}
