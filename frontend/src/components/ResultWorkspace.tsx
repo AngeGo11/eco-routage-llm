@@ -1,12 +1,18 @@
 import { useState } from "react";
 import { Activity, ArrowDownRight, ArrowUpRight, BarChart3, ChevronDown, Download, Info, Leaf, Lightbulb, LoaderCircle } from "lucide-react";
 import type { EstimateResponse, ModelResult } from "../types/estimation";
+import type { SavedPair } from "../utils/history";
 import { DecisionInsights, ModelComparator } from "./DecisionInsights";
 import { barRatio } from "../utils/energyInsights";
 import EnergyBreakdown from "./EnergyBreakdown";
 import { downloadResultsCsv } from "../utils/exportResults";
 
-type Props = { result: EstimateResponse | null; loading: boolean; error: string | null };
+type Props = {
+  result: EstimateResponse | null; loading: boolean; error: string | null;
+  activeId: string | null; savedPairs: SavedPair[];
+  comparisonPreset: {id: string; pair: SavedPair} | null;
+  onSaveComparison: (pair: SavedPair) => void;
+};
 const wh = (value: number) => new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 6, maximumSignificantDigits: 5 }).format(value);
 const percentage = (value: number | null) => value == null ? "n.d." : new Intl.NumberFormat("fr-FR", { style: "percent", maximumFractionDigits: 1 }).format(value);
 
@@ -71,7 +77,7 @@ function EmptyGraphic() {
   </div>;
 }
 
-export default function ResultWorkspace({ result, loading, error }: Props) {
+export default function ResultWorkspace({ result, loading, error, activeId, savedPairs, comparisonPreset, onSaveComparison }: Props) {
   const recommended = result?.results.find(model => model.name === result.recommended_model);
   return <div className="results-column" id="resultats">
     <div className="page-overline"><span><span className="live-dot"/> OBSERVATOIRE DE L'IA SOBRE</span><span>ÉTUDE N° 001 / 2026</span></div>
@@ -87,7 +93,9 @@ export default function ResultWorkspace({ result, loading, error }: Props) {
       <EmptyGraphic/>
       <div className="empty-copy"><div className="round-icon"><Lightbulb size={20}/></div><div><h3>À chaque prompt, sa trajectoire.</h3><p>Saisissez votre demande à droite pour afficher ici les estimations énergétiques, les modèles comparés et le détail des calculs. Aucun chiffre fictif n'est présenté.</p>{error && <p className="empty-error">Le calcul n'a pas abouti. Consultez le message dans le panneau de droite.</p>}</div></div>
     </section>}
-    {result && !loading && <ModelComparator result={result} />}
+    {result && !loading && <ModelComparator key={comparisonPreset?.id ?? activeId ?? "no-record"}
+      result={result} initialPair={comparisonPreset?.pair}
+      savedPairs={savedPairs} onSaveComparison={onSaveComparison} canSave={Boolean(activeId)} />}
     <div className="method-strip"><div><span>COMMENT LIRE CES RÉSULTATS</span><p>Tokens d'entrée ≈ caractères / 4. Les tokens de sortie sont prédits à partir de l'historique CompareAI.</p></div><a href="#methode">Comprendre la méthode <ArrowDownRight size={15}/></a></div>
     <section id="methode" className="methods"><span className="eyebrow dark">03 / TRANSPARENCE MÉTHODOLOGIQUE</span><h2>Estimer n'est pas mesurer.</h2><p>La V0.2 utilise une loi de puissance ou une régression additive selon les paramètres choisis. ML.ENERGY exploite des facteurs issus de configurations GPU hétérogènes et utilise la variante « sortie seule ». Les résultats ne permettent pas de comparer directement des mesures GPU identiques pour tous les modèles.</p></section>
   </div>;
