@@ -95,7 +95,7 @@ export function ModelComparator({ result, initialPair, savedPairs, onSaveCompari
   return (
     <section className="model-comparator" aria-labelledby="comparison-title">
       <div className="comparator-heading">
-        <div><span className="eyebrow dark">03 / FACE À FACE</span><h2 id="comparison-title">Comparer deux modèles,<br/><em>à conditions égales.</em></h2></div>
+        <div><span className="eyebrow dark">03 / FACE À FACE</span><h2 id="comparison-title" tabIndex={-1}>Comparer deux modèles,<br/><em>à conditions égales.</em></h2></div>
         <GitCompareArrows size={22} aria-hidden="true" />
       </div>
       <div className="comparator-grid">
