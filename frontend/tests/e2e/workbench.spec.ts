@@ -18,7 +18,8 @@ test.beforeEach(async ({page}) => {
     status:200, contentType:"application/json", body:JSON.stringify(sample),
   }));
   await page.goto("/");
-  await expect(page.getByRole("button",{name:/lancer l'estimation/i})).toBeEnabled();
+  await expect(page.getByText("Moteur disponible — calcul sur données locales.")).toBeVisible();
+  await expect(page.getByRole("button",{name:/lancer l'estimation/i})).toBeDisabled();
 });
 
 test("disposition adaptée à l'écran sans débordement", async ({page}) => {
