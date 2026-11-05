@@ -4,7 +4,7 @@ import { ArrowUpRight, Check, ChevronDown, CircleAlert, Clock3, ExternalLink, Hi
 import ResultWorkspace from "./components/ResultWorkspace";
 import HistoryDrawer from "./components/HistoryDrawer";
 import {
-  addSavedPair, appendRecord, HISTORY_KEY, HISTORY_OPT_IN_KEY, readHistory,
+  addSavedPair, appendRecord, HISTORY_KEY, HISTORY_OPT_IN_KEY, readHistory, removeSavedPair,
 } from "./utils/history";
 import type { AnalysisRecord, SavedPair } from "./utils/history";
 import { estimatePrompt, getHealth } from "./services/estimation";
@@ -221,6 +221,7 @@ export default function App() {
         setHistory(prev => prev.filter(item => item.id !== id));
         if (activeId === id) setActiveId(null);
       }}
+      onRemovePair={(id, pair) => setHistory(prev => removeSavedPair(prev, id, pair))}
       onClear={() => { setHistory([]); setActiveId(null); }} />
     <footer className="global-footer"><span>© 2026 ÉCO-ROUTAGE · RECHERCHE SUR LA SOBRIÉTÉ DE L'IA</span><span>LES CHIFFRES SONT DES ESTIMATIONS, PAS DES MESURES GPU DIRECTES. <ArrowUpRight size={13}/></span></footer>
   </div>;
