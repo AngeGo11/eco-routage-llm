@@ -56,3 +56,65 @@ test("les données manquantes bloquent le calcul", async ({page}) => {
   await expect(page.getByText("Jeu de données CompareAI manquant sur le serveur.")).toBeVisible();
   await expect(page.getByRole("button",{name:/lancer l'estimation/i})).toBeDisabled();
 });
+
+test("historique de session : rouvrir sans relancer le moteur", async ({page}) => {
+  let requests = 0;
+  await page.route("**/api/estimate", route => {
+    requests++;
+    return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(sample)});
+  });
+  await page.getByRole("textbox",{name:/prompt à analyser/i}).fill("Mon premier prompt");
+  await page.getByRole("button",{name:/lancer l'estimation/i}).click();
+  await expect(page.getByText("+0,02 Wh estimés par rapport au minimum")).toBeVisible();
+  expect(requests).toBe(1);
+  await page.getByRole("textbox",{name:/prompt à analyser/i}).fill("Une autre question");
+  await page.getByRole("button",{name:/Historique/i}).click();
+  const dialog=page.getByRole("dialog",{name:/Vos analyses/i});
+  await expect(dialog.getByText("Mon premier prompt")).toBeVisible();
+  await dialog.getByRole("button",{name:/Revoir l'analyse/i}).click();
+  await expect(page.getByRole("textbox",{name:/prompt à analyser/i})).toHaveValue("Mon premier prompt");
+  await expect(page.getByText("+0,02 Wh estimés par rapport au minimum")).toBeVisible();
+  expect(requests).toBe(1);
+});
+
+test("sauvegarder et restaurer une comparaison", async ({page}) => {
+  await page.getByRole("textbox",{name:/prompt à analyser/i}).fill("Comparer mes modèles");
+  await page.getByRole("button",{name:/lancer l'estimation/i}).click();
+  await page.getByRole("button",{name:"Enregistrer cette comparaison"}).click();
+  await expect(page.getByRole("button",{name:"Comparaison enregistrée"})).toBeDisabled();
+  await page.getByRole("button",{name:/Historique/i}).click();
+  const dialog=page.getByRole("dialog",{name:/Vos analyses/i});
+  await dialog.getByRole("button",{name:/Modèle A.*vs.*Modèle B/i}).click();
+  await expect(page.getByRole("combobox",{name:"MODÈLE A"})).toHaveValue("Modèle A");
+  await expect(page.getByRole("combobox",{name:"MODÈLE B"})).toHaveValue("Modèle B");
+});
+
+test("la persistance ne fonctionne qu'après consentement et se désactive sans laisser de copie", async ({page}) => {
+  await page.getByRole("textbox",{name:/prompt à analyser/i}).fill("Mon prompt local");
+  await page.getByRole("button",{name:/lancer l'estimation/i}).click();
+  await page.getByRole("button",{name:/Historique/i}).click();
+  const dialog=page.getByRole("dialog",{name:/Vos analyses/i});
+  const toggle=dialog.getByRole("checkbox",{name:/Conserver mes analyses sur cet appareil/i});
+  await expect(toggle).not.toBeChecked();
+  expect(await page.evaluate(()=>localStorage.getItem("eco-routage:analyses:v1"))).toBeNull();
+  await toggle.check();
+  await expect(toggle).toBeChecked();
+  expect(await page.evaluate(()=>localStorage.getItem("eco-routage:analyses:v1"))).toContain("Mon prompt local");
+  await page.reload();
+  await page.getByRole("button",{name:/Historique/i}).click();
+  await expect(page.getByRole("dialog").getByText("Mon prompt local")).toBeVisible();
+  await page.getByRole("checkbox",{name:/Conserver mes analyses sur cet appareil/i}).uncheck();
+  expect(await page.evaluate(()=>localStorage.getItem("eco-routage:analyses:v1"))).toBeNull();
+  await page.reload();
+  await page.getByRole("button",{name:/Historique/i}).click();
+  await expect(page.getByText("Aucune analyse pour le moment.")).toBeVisible();
+});
+
+test("fermeture de l'historique au clavier et retour du focus", async ({page}) => {
+  const trigger=page.getByRole("button",{name:/Historique/i});
+  await trigger.click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
