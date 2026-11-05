@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Activity, ArrowDownRight, ArrowUpRight, BarChart3, CheckCircle2, ChevronDown, Info, Leaf, Lightbulb, LoaderCircle } from "lucide-react";
+import { Activity, ArrowDownRight, ArrowUpRight, BarChart3, ChevronDown, Info, Leaf, Lightbulb, LoaderCircle } from "lucide-react";
 import type { EstimateResponse, ModelResult } from "../types/estimation";
 
 type Props = { result: EstimateResponse | null; loading: boolean; error: string | null };
