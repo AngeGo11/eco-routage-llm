@@ -35,6 +35,11 @@ L'API ne fait **pas** d'appels à un fournisseur de modèles IA. Elle lance `est
 
 - **Colonne gauche** : état vide explicite, recommandation calculée, énergie estimée en Wh, nombre de modèles évalués, histogramme relatif et détails d'une ligne au clic. La recommandation et le minimum énergétique peuvent différer si le filtre de réactions s'applique.
 - **Colonne droite** : prompt, approximation de tokens d'entrée, source (CompareAI / ML.ENERGY), variante énergétique, seuils de réactions, bouton d'estimation et états connexion/chargement/erreur.
+- **Aide à la décision** : minimum énergétique et recommandation après filtre historique affichés séparément ; surcoût estimé en Wh et en % relatif au minimum (indéfini si le minimum vaut zéro).
+- **Visualisations** : classement triable (énergie ou nom), barres proportionnelles à la valeur maximale affichée, comparaison libre de deux modèles à prompt/source/méthode constants.
+- **Détail du calcul** : nombre d'observations, tokens de sortie estimés, score de réaction historique ; ventilation en base/entrée/sortie uniquement pour la méthode V0.2 additive. La variante puissance n'est pas une somme additive et ML.ENERGY montre la dispersion entre configurations quand disponible.
+
+**Attention :** le plus petit estimateur énergétique peut être différent du modèle choisi par le filtre de réactions. Un surcoût affiché n'est pas une dépense mesurée et ne garantit pas une réponse meilleure.
 - **Méthodologie** : résultats estimés, score de qualité historique, contraintes de comparaison entre les sources et configurations GPU.
 
 ## Structure
@@ -54,6 +59,7 @@ frontend/
 ```bash
 cd frontend
 npm run typecheck
+npm test
 npm run build
 cd ..
 python -m pip install -r api/requirements-dev.txt
@@ -64,4 +70,4 @@ Le workflow GitHub Actions `.github/workflows/frontend-api.yml` automatise la co
 
 ## Guides ECC consultés
 
-Principes adaptés de `frontend-design-direction`, `design-system`, `frontend-a11y`, `frontend-patterns`, `react-patterns`, `api-design`, `react-testing` dans le dépôt [affaan-m/ECC](https://github.com/affaan-m/ECC). Aucun script externe ECC n'est exécuté.
+Principes adaptés de `frontend-design-direction`, `design-system`, `frontend-a11y`, `frontend-patterns`, `react-patterns`, `api-design`, `react-testing`, `dashboard-builder` dans le dépôt [affaan-m/ECC](https://github.com/affaan-m/ECC). Aucun script externe ECC n'est exécuté.
