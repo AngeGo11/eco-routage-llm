@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ArrowDownRight, ArrowUpRight, CheckCircle2, GitCompareArrows, Info } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, BookmarkPlus, CheckCircle2, GitCompareArrows, Info } from "lucide-react";
 import type { EstimateResponse, ModelResult } from "../types/estimation";
+import type { SavedPair } from "../utils/history";
 import {
   comparisonInsight, eligibleResults, recommendationInsight,
 } from "../utils/energyInsights";
@@ -59,7 +60,15 @@ export function DecisionInsights({ result }: { result: EstimateResponse }) {
   );
 }
 
-export function ModelComparator({ result }: { result: EstimateResponse }) {
+interface ComparatorProps {
+  result: EstimateResponse;
+  initialPair?: SavedPair;
+  savedPairs: SavedPair[];
+  onSaveComparison: (pair: SavedPair) => void;
+  canSave: boolean;
+}
+
+export function ModelComparator({ result, initialPair, savedPairs, onSaveComparison, canSave }: ComparatorProps) {
   const options = eligibleResults(result);
   const insight = recommendationInsight(result);
   const firstDefault = insight?.cheapest.name ?? options[0]?.name ?? "";
@@ -67,14 +76,21 @@ export function ModelComparator({ result }: { result: EstimateResponse }) {
     ? insight.chosen.name
     : (options.find(model => model.name !== firstDefault)?.name ?? firstDefault);
 
-  const [left, setLeft] = useState(firstDefault);
-  const [right, setRight] = useState(secondDefault);
+  const [left, setLeft] = useState(
+    initialPair && options.some(m => m.name === initialPair.left) ? initialPair.left : firstDefault
+  );
+  const [right, setRight] = useState(
+    initialPair && options.some(m => m.name === initialPair.right) ? initialPair.right : secondDefault
+  );
   const a = options.find(item => item.name === left);
   const b = options.find(item => item.name === right);
 
   if (options.length < 2) return null;
   const diff = a && b ? comparisonInsight(a, b) : null;
   const same = a?.name === b?.name;
+  const alreadySaved = savedPairs.some(pair =>
+    (pair.left === left && pair.right === right) || (pair.left === right && pair.right === left)
+  );
 
   return (
     <section className="model-comparator" aria-labelledby="comparison-title">
@@ -105,6 +121,14 @@ export function ModelComparator({ result }: { result: EstimateResponse }) {
           diff.differenceWh > 0 ? <><ArrowUpRight size={18}/><p><strong>Le modèle B est estimé plus énergivore de {formatWh(diff.differenceWh)} Wh</strong>{diff.differencePercent === null ? " (pourcentage non calculable)." : ` (+${formatPercent(diff.differencePercent)} % par rapport au modèle A).`}</p></> :
           diff.differenceWh < 0 ? <><ArrowDownRight size={18}/><p><strong>Le modèle B est estimé moins énergivore de {formatWh(Math.abs(diff.differenceWh))} Wh</strong>{diff.differencePercent === null ? " (pourcentage non calculable)." : ` (${formatPercent(diff.differencePercent)} % par rapport au modèle A).`}</p></> :
           <><CheckCircle2 size={17}/><p>Même énergie estimée pour les deux modèles dans la précision du calcul.</p></>}
+      </div>
+      <div className="comparison-save-area">
+        <button type="button" className="comparison-save" onClick={() => onSaveComparison({ left, right })}
+          disabled={!canSave || !a || !b || same || alreadySaved}>
+          {alreadySaved ? <CheckCircle2 size={17}/> : <BookmarkPlus size={17}/>}
+          {alreadySaved ? "Comparaison enregistrée" : "Enregistrer cette comparaison"}
+        </button>
+        <p>Retrouvez vos comparaisons dans « Historique ». Stockage sur cet appareil uniquement si vous l'activez.</p>
       </div>
       <p className="comparator-note">Les valeurs sont calculées à partir de la même requête, de la même source et de la même méthode. Les différences ne sont pas des économies réelles mesurées.</p>
     </section>
