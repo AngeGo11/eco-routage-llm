@@ -290,3 +290,11 @@ h1 em,h2 em{font:400 1em "DM Serif Display",serif;letter-spacing:-2px;color:#d78
 .history-footer{border-top:1px solid #dce4d6;margin-top:32px;padding-top:22px;color:#91a593;font:9px "DM Mono",monospace;letter-spacing:.5px}
 @media(max-width:1060px){.header-links{gap:15px}.header-history{padding:8px 10px}}
 @media(max-width:620px){.header-history{margin-left:auto;padding:8px}.header-version{display:none}.history-drawer{width:100vw;padding:26px 20px}.history-drawer h2{font-size:35px}.comparison-save-area{align-items:stretch}.comparison-save{width:100%}.history-list-heading{flex-wrap:wrap}}
+
+.history-pair-row{display:flex;align-items:stretch;gap:5px}
+.history-pair-row>button:first-child{display:flex;align-items:center;gap:7px;flex:1;min-width:0;border:0;border-left:2px solid #d79c70;background:#f4eee6;text-align:left;padding:10px;color:#6f654d;font-size:11px;font-weight:600;overflow-wrap:anywhere}
+.history-pair-row>button:first-child:hover{background:#eee2d4}
+.history-pair-row>button:first-child span{font-size:10px;color:#ad856a}
+.history-pair-row>button:first-child svg{margin-left:auto;flex:none}
+.history-pair-row .history-pair-remove{min-width:39px;min-height:38px;border:1px solid #eedfd4;background:#fff8f1;color:#a16d53;display:grid;place-items:center}
+.history-pair-row .history-pair-remove:hover{background:#f1dfd1}
