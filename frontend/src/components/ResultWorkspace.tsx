@@ -3,6 +3,7 @@ import { Activity, ArrowDownRight, ArrowUpRight, BarChart3, ChevronDown, Info, L
 import type { EstimateResponse, ModelResult } from "../types/estimation";
 import { DecisionInsights, ModelComparator } from "./DecisionInsights";
 import { barRatio } from "../utils/energyInsights";
+import EnergyBreakdown from "./EnergyBreakdown";
 
 type Props = { result: EstimateResponse | null; loading: boolean; error: string | null };
 const wh = (value: number) => new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 6, maximumSignificantDigits: 5 }).format(value);
@@ -15,7 +16,7 @@ function Detail({ model, result }: { model: ModelResult; result: EstimateRespons
     <div><span>Réactions historiques (proxy qualitatif)</span><strong>{percentage(model.reaction_quality)} · {model.reaction_count ?? "n.d."} réactions</strong></div>
     <div><span>Observations énergie</span><strong>{model.observations ?? "Indisponible"}</strong></div>
     {result.energy_model === "output-only" && <div><span>Méthode de calcul</span><strong>Facteur énergétique × sortie estimée</strong></div>}
-    {result.energy_model === "input-output" && <div><span>Base / entrée / sortie</span><strong>{wh(model.base_energy_wh ?? 0)} / {wh(model.input_energy_wh ?? 0)} / {wh(model.output_energy_wh ?? 0)} Wh</strong></div>}
+    {result.energy_model === "input-output" && <EnergyBreakdown model={model} />}
     {result.energy_model === "power-law" && <><div><span>Exposants entrée / sortie</span><strong>{model.input_exponent == null ? "n.d." : model.input_exponent.toFixed(3)} / {model.output_exponent == null ? "n.d." : model.output_exponent.toFixed(3)}</strong></div><div><span>Interprétation du modèle</span><strong>Estimation non additive ; exposants calibrés sur CompareAI</strong></div></>}
     {result.energy_source === "mlenergy" && <div><span>Dispersion P10 à P90 (configurations)</span><strong>{model.config_p10_wh == null ? "n.d." : wh(model.config_p10_wh)} à {model.config_p90_wh == null ? "n.d." : wh(model.config_p90_wh)} Wh</strong></div>}
   </div>;
