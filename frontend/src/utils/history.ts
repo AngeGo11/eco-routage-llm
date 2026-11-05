@@ -24,6 +24,22 @@ export function isRecord(value: unknown): value is AnalysisRecord {
     && typeof value.createdAt === "string"
     && typeof value.prompt === "string" && value.prompt.length <= 4000
     && typeof value.request.prompt === "string"
+    && value.request.prompt === value.prompt
+    && (value.request.energy_source === "compareai" || value.request.energy_source === "mlenergy")
+    && (value.request.energy_model === "power-law"
+      || value.request.energy_model === "input-output"
+      || value.request.energy_model === "output-only")
+    && typeof value.request.min_reactions === "number"
+    && Number.isInteger(value.request.min_reactions)
+    && value.request.min_reactions >= 1 && value.request.min_reactions <= 10000
+    && typeof value.request.reaction_threshold === "number"
+    && value.request.reaction_threshold >= 0 && value.request.reaction_threshold <= 1
+    && typeof value.request.top === "number" && value.request.top >= 1
+    && (r.energy_source === "compareai" || r.energy_source === "mlenergy")
+    && (r.energy_model === "power-law" || r.energy_model === "input-output" || r.energy_model === "output-only")
+    && typeof r.input_tokens === "number" && Number.isFinite(r.input_tokens)
+    && typeof r.models_evaluated === "number" && Number.isFinite(r.models_evaluated)
+    && typeof r.quality_filter_applied === "boolean"
     && Array.isArray(r.results) && r.results.length <= 30
     && typeof r.recommended_model === "string"
     && r.results.every(model => isObject(model)
