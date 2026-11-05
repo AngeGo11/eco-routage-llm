@@ -89,7 +89,9 @@ export default function App() {
     setComparisonPreset(pair ? { id: record.id + ":" + Date.now().toString(), pair } : null);
     closeHistory();
     requestAnimationFrame(() => {
-      document.getElementById(pair ? "comparison-title" : "resultats")?.scrollIntoView({ block: "start", behavior: "smooth" });
+      const destination = document.getElementById(pair ? "comparison-title" : "resultats");
+      destination?.focus({ preventScroll: true });
+      destination?.scrollIntoView({ block: "start", behavior: "smooth" });
     });
   }
 
