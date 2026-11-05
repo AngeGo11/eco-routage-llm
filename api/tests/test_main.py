@@ -39,8 +39,9 @@ class ContractTests(unittest.TestCase):
         completed = subprocess.CompletedProcess(
             args=[], returncode=0, stdout="ECO_ROUTAGE_JSON:" + json.dumps(payload), stderr=""
         )
-        with patch("api.main.COMPAREAI") as data, patch("api.main.subprocess.run", return_value=completed) as run:
+        with patch("api.main.COMPAREAI") as data, patch("api.main.REACTIONS") as reactions, patch("api.main.subprocess.run", return_value=completed) as run:
             data.is_file.return_value = True
+            reactions.is_file.return_value = True
             response = client.post("/api/estimate", json={"prompt": "Bonjour"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), payload)
@@ -52,8 +53,9 @@ class ContractTests(unittest.TestCase):
             args=[], returncode=0,
             stdout="ECO_ROUTAGE_JSON:" + json.dumps(payload), stderr=""
         )
-        with patch("api.main.COMPAREAI") as data, patch("api.main.subprocess.run", return_value=completed) as run:
+        with patch("api.main.COMPAREAI") as data, patch("api.main.REACTIONS") as reactions, patch("api.main.subprocess.run", return_value=completed) as run:
             data.is_file.return_value = True
+            reactions.is_file.return_value = True
             response = client.post("/api/estimate", json={"prompt": "--résume un texte"})
         self.assertEqual(response.status_code, 200)
         self.assertIn("--prompt=--résume un texte", run.call_args.args[0])
