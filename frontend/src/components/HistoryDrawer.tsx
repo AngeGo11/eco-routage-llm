@@ -12,6 +12,7 @@ interface Props {
   onTogglePersistence: (enabled: boolean) => void;
   onRestore: (record: AnalysisRecord, pair?: SavedPair) => void;
   onRemove: (id: string) => void;
+  onRemovePair: (id: string, pair: SavedPair) => void;
   onClear: () => void;
 }
 
@@ -23,7 +24,7 @@ function stamp(iso: string) {
 
 export default function HistoryDrawer({
   open, records, activeId, persistEnabled, storageError, onClose,
-  onTogglePersistence, onRestore, onRemove, onClear,
+  onTogglePersistence, onRestore, onRemove, onRemovePair, onClear,
 }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
@@ -103,10 +104,14 @@ export default function HistoryDrawer({
           </div>
           {item.comparisons.length > 0 && <div className="history-pairs">
             <span>COMPARAISONS ENREGISTRÉES</span>
-            {item.comparisons.map(pair => <button type="button" key={pair.left + "|" + pair.right}
-              onClick={() => onRestore(item, pair)}>
-              {pair.left} <span>vs</span> {pair.right}<ArrowUpRight size={14}/>
-            </button>)}
+            {item.comparisons.map(pair => <div className="history-pair-row" key={pair.left + "|" + pair.right}>
+              <button type="button" onClick={() => onRestore(item, pair)}>
+                {pair.left} <span>vs</span> {pair.right}<ArrowUpRight size={14}/>
+              </button>
+              <button type="button" className="history-pair-remove"
+                aria-label={`Supprimer la comparaison ${pair.left} contre ${pair.right}`}
+                onClick={() => onRemovePair(item.id, pair)}><X size={14}/></button>
+            </div>)}
           </div>}
         </li>)}</ol>}
       <div className="history-footer">ÉCO-ROUTAGE · JOURNAL PERSONNEL DES ESTIMATIONS</div>
