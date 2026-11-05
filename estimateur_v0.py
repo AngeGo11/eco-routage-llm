@@ -9,6 +9,7 @@ Le modèle prédit l'énergie estimée de la réponse (pas une mesure GPU).
 from __future__ import annotations
 
 import argparse
+import json
 import math
 from pathlib import Path
 
@@ -578,6 +579,7 @@ def main():
     parser = argparse.ArgumentParser(description="Estimateur V0/V0.1/V0.2 énergie / éco-routage")
     parser.add_argument("--eval", action="store_true", help="évaluer sur le split test figé")
     parser.add_argument("--prompt", help="estimer l'énergie pour ce prompt")
+    parser.add_argument("--json-line", action="store_true", help="ajouter une ligne JSON structurée pour l’API")
     parser.add_argument("--top", type=int, default=5, help="nombre de modèles à afficher")
     parser.add_argument("--energy-source", choices=("compareai", "mlenergy"), default="compareai",
                         help="source des facteurs énergie pour la recommandation (défaut : compareai)")
@@ -797,6 +799,24 @@ def main():
             display = pd.concat([display, ranking.loc[[chosen_model]]])
         display = display.copy()
         display["recommended"] = display.index == chosen_model
+        if args.json_line:
+            # Contrat machine lisible ; la sortie CLI historique reste inchangée par défaut.
+            columns = ["estimated_wh", "output_tokens_est", "observations",
+                       "factor_source", "reaction_quality", "reaction_count", "recommended",
+                       "config_p10_wh", "config_p90_wh", "input_exponent", "output_exponent",
+                       "input_energy_wh", "output_energy_wh", "base_energy_wh"]
+            frame = display.reset_index().rename(columns={"model": "name"})
+            record_columns = ["name"] + [col for col in columns if col in frame.columns]
+            payload = {
+                "energy_source": args.energy_source,
+                "energy_model": "output-only" if args.energy_source == "mlenergy" else args.energy_model,
+                "input_tokens": int(input_tokens),
+                "models_evaluated": int(len(ranking)),
+                "recommended_model": str(chosen_model),
+                "quality_filter_applied": bool(len(eligible_ranking)),
+                "results": json.loads(frame[record_columns].to_json(orient="records")),
+            }
+            print("ECO_ROUTAGE_JSON:" + json.dumps(payload, ensure_ascii=False, allow_nan=False))
         display_columns = ["estimated_wh", "output_tokens_est", "observations", "factor_source", "reaction_quality", "reaction_count", "recommended"]
         rename_columns = {"estimated_wh": "énergie estimée (Wh)", "base_energy_wh": "base/requête (Wh)",
                           "input_energy_wh": "entrée estimée (Wh)",
