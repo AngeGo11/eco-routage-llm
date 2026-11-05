@@ -30,11 +30,12 @@ export function DecisionInsights({ result }: { result: EstimateResponse }) {
   );
 
   const { cheapest, chosen, differs, extraWh, extraPercent } = insight;
+  const tiesOnEnergy = differs && extraWh === 0;
   return (
     <section className="decision-insight" aria-labelledby="decision-title">
       <div className="decision-header">
         <span className="eyebrow dark">LE COMPROMIS À CONNAÎTRE</span>
-        <h3 id="decision-title">{differs ? "Le meilleur facteur énergétique n'est pas toujours le choix recommandé." : "Un choix qui minimise aussi l'énergie estimée."}</h3>
+        <h3 id="decision-title">{tiesOnEnergy ? "Deux modèles ex æquo en énergie estimée." : differs ? "Le minimum énergétique et le modèle recommandé peuvent différer." : "Un choix qui minimise aussi l’énergie estimée."}</h3>
       </div>
       <div className="decision-metrics">
         <LabeledMetric label="MINIMUM ÉNERGÉTIQUE" model={cheapest} index="A" />
@@ -44,11 +45,11 @@ export function DecisionInsights({ result }: { result: EstimateResponse }) {
         {differs ? <ArrowUpRight size={19} aria-hidden="true" /> : <CheckCircle2 size={19} aria-hidden="true" />}
         <div>
           <strong>{differs
-            ? `+${formatWh(extraWh)} Wh estimés par rapport au minimum`
+            ? (tiesOnEnergy ? "Même énergie estimée que le minimum" : `+${formatWh(extraWh)} Wh estimés par rapport au minimum`)
             : "Le modèle recommandé est également le moins énergivore de la sélection"}
           </strong>
           <p>{differs
-            ? `${extraPercent === null ? "Écart relatif non calculable (minimum nul)." : `Écart relatif de +${formatPercent(extraPercent)} %.`} ${result.quality_filter_applied ? "Le filtre de réactions historiques influe sur le choix." : "Les critères de classement peuvent différer."} Cette comparaison ne prédit pas la qualité d'une nouvelle réponse.`
+            ? `${tiesOnEnergy ? "Aucun surcoût énergétique estimé entre ces deux modèles." : extraPercent === null ? "Écart relatif non calculable (minimum nul)." : `Écart relatif de +${formatPercent(extraPercent)} %.`} ${result.quality_filter_applied ? "Le filtre de réactions historiques influe sur le choix." : "Les critères de classement peuvent différer."} Cette comparaison ne prédit pas la qualité d'une nouvelle réponse.`
             : "Aucun surcoût estimé par rapport au minimum affiché. Les réactions historiques ne constituent pas une garantie de qualité."}
           </p>
         </div>
