@@ -1,9 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { ArrowUpRight, Check, ChevronDown, CircleAlert, Clock3, ExternalLink, Leaf, LoaderCircle, RotateCcw, Send, SlidersHorizontal, X } from "lucide-react";
+import { ArrowUpRight, Check, ChevronDown, CircleAlert, Clock3, ExternalLink, History, Leaf, LoaderCircle, RotateCcw, Send, SlidersHorizontal, X } from "lucide-react";
 import ResultWorkspace from "./components/ResultWorkspace";
+import HistoryDrawer from "./components/HistoryDrawer";
+import {
+  addSavedPair, appendRecord, HISTORY_KEY, HISTORY_OPT_IN_KEY, readHistory,
+} from "./utils/history";
+import type { AnalysisRecord, SavedPair } from "./utils/history";
 import { estimatePrompt, getHealth } from "./services/estimation";
 import type { EnergyModel, EnergySource, EstimateResponse, HealthResponse } from "./types/estimation";
+
+function initialHistoryPreference(): boolean {
+  try { return window.localStorage.getItem(HISTORY_OPT_IN_KEY) === "true"; }
+  catch { return false; }
+}
 
 const methods: { id: EnergyModel; label: string }[] = [
   { id: "power-law", label: "V0.2 · Loi de puissance" },
@@ -24,6 +34,70 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<EstimateResponse | null>(null);
   const requestController = useRef<AbortController | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const historyButtonRef = useRef<HTMLButtonElement>(null);
+  const [persistHistory, setPersistHistory] = useState(initialHistoryPreference);
+  const [history, setHistory] = useState<AnalysisRecord[]>(() =>
+    initialHistoryPreference() ? readHistory(window.localStorage) : []
+  );
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [comparisonPreset, setComparisonPreset] = useState<{
+    id: string; pair: SavedPair;
+  } | null>(null);
+  const closeHistory = useCallback(() => {
+    setHistoryOpen(false);
+    historyButtonRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!persistHistory) return;
+    try { window.localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); }
+    catch {
+      setHistoryError("Stockage local indisponible ou saturé : les analyses restent dans cet onglet.");
+      setPersistHistory(false);
+      try { window.localStorage.removeItem(HISTORY_OPT_IN_KEY); } catch { /* stockage bloqué */ }
+    }
+  }, [history, persistHistory]);
+
+  function changePersistence(enabled: boolean) {
+    setHistoryError(null);
+    if (!enabled) {
+      setPersistHistory(false);
+      try {
+        window.localStorage.removeItem(HISTORY_KEY);
+        window.localStorage.removeItem(HISTORY_OPT_IN_KEY);
+      } catch { setHistoryError("Impossible de vider le stockage : effacez les données du site dans votre navigateur."); }
+      return;
+    }
+    try {
+      window.localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      window.localStorage.setItem(HISTORY_OPT_IN_KEY, "true");
+      setPersistHistory(true);
+    } catch { setHistoryError("Stockage indisponible : aucune sauvegarde persistante activée."); }
+  }
+
+  function restoreAnalysis(record: AnalysisRecord, pair?: SavedPair) {
+    resetResult();
+    setPrompt(record.prompt);
+    setSource(record.request.energy_source);
+    setMethod(record.request.energy_model);
+    setMinReactions(record.request.min_reactions);
+    setReactionThreshold(record.request.reaction_threshold);
+    setResult(record.result);
+    setActiveId(record.id);
+    setComparisonPreset(pair ? { id: record.id + ":" + Date.now().toString(), pair } : null);
+    closeHistory();
+    requestAnimationFrame(() => {
+      document.getElementById(pair ? "comparison-title" : "resultats")?.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+  }
+
+  function saveComparison(pair: SavedPair) {
+    if (!activeId) return;
+    setHistory(prev => addSavedPair(prev, activeId, pair));
+  }
+
 
   useEffect(() => {
     const controller = new AbortController();
@@ -64,7 +138,21 @@ export default function App() {
         reaction_threshold: reactionThreshold,
         top: 8,
       }, controller.signal);
-      if (!controller.signal.aborted) setResult(response);
+      if (!controller.signal.aborted) {
+        const completed: AnalysisRecord = {
+          id: crypto.randomUUID(), createdAt: new Date().toISOString(), prompt: prompt.trim(),
+          request: {
+            prompt: prompt.trim(), energy_source: source,
+            energy_model: source === "mlenergy" ? "output-only" : method,
+            min_reactions: minReactions, reaction_threshold: reactionThreshold, top: 8,
+          },
+          result: response, comparisons: [],
+        };
+        setHistory(prev => appendRecord(prev, completed));
+        setActiveId(completed.id);
+        setComparisonPreset(null);
+        setResult(response);
+      }
     } catch (reason) {
       if (!controller.signal.aborted) setError(reason instanceof TypeError
         ? "Impossible de contacter l'API locale. Vérifiez le démarrage du serveur FastAPI."
@@ -79,16 +167,22 @@ export default function App() {
   const missingMLEnergy = source === "mlenergy" && health?.mlenergy_available === false;
   const blocked = checking || disconnected || missingCompareAI || missingReactions || missingMLEnergy;
   const approxTokens = prompt.length ? Math.max(1, Math.ceil(prompt.length / 4)) : 0;
+  const activeRecord = history.find(item => item.id === activeId);
 
   return <div className="application" id="haut">
     <header className="app-header">
       <a className="logo" href="#haut" aria-label="Éco-routage, retour en haut"><span className="logo-icon"><Leaf size={19} strokeWidth={2.1}/></span><span>éco<span className="logo-divider">/</span>routage</span></a>
       <span className="logo-subline">ENERGY INTELLIGENCE LAB</span>
       <nav className="header-links" aria-label="Navigation de l'application"><a className="current" href="#resultats">Observatoire</a><a href="#composer">Simulateur</a><a href="#methode">Méthode</a></nav>
+      <button ref={historyButtonRef} type="button" className="header-history" onClick={() => setHistoryOpen(true)} aria-haspopup="dialog"><History size={16}/> Historique <span>{history.length}</span></button>
       <span className="header-version"><span className="header-bullet"/> PROTOTYPE V0.2</span>
     </header>
     <main className="split-layout">
-      <ResultWorkspace result={result} loading={loading} error={error} />
+      <ResultWorkspace result={result} loading={loading} error={error}
+        activeId={activeId}
+        savedPairs={activeRecord?.comparisons ?? []}
+        comparisonPreset={comparisonPreset}
+        onSaveComparison={saveComparison} />
       <aside className="composer-column" id="composer" aria-labelledby="composer-title">
         <div className="composer-inner">
           <div className="composer-top"><span>01 / SIMULATEUR</span><span className="composer-top-icon"><SlidersHorizontal size={17}/></span></div>
@@ -119,6 +213,15 @@ export default function App() {
         </div>
       </aside>
     </main>
+    <HistoryDrawer open={historyOpen} records={history} activeId={activeId}
+      persistEnabled={persistHistory} storageError={historyError}
+      onTogglePersistence={changePersistence} onClose={closeHistory}
+      onRestore={restoreAnalysis}
+      onRemove={id => {
+        setHistory(prev => prev.filter(item => item.id !== id));
+        if (activeId === id) setActiveId(null);
+      }}
+      onClear={() => { setHistory([]); setActiveId(null); }} />
     <footer className="global-footer"><span>© 2026 ÉCO-ROUTAGE · RECHERCHE SUR LA SOBRIÉTÉ DE L'IA</span><span>LES CHIFFRES SONT DES ESTIMATIONS, PAS DES MESURES GPU DIRECTES. <ArrowUpRight size={13}/></span></footer>
   </div>;
 }
