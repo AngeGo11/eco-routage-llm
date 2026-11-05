@@ -227,3 +227,9 @@ h1 em,h2 em{font:400 1em "DM Serif Display",serif;letter-spacing:-2px;color:#d78
 .breakdown-legend strong{display:block;font:600 12px "DM Sans",sans-serif;color:#355942;margin:4px 0 0}
 .breakdown-footnote,.breakdown-unavailable{grid-column:1/-1;font:10px/1.6 "DM Sans",sans-serif;color:#8a9b8c;margin:9px 0 0}
 @media(max-width:620px){.breakdown-legend{grid-template-columns:1fr;gap:10px}.breakdown-legend>span{display:flex;gap:8px;align-items:center}.breakdown-legend strong{margin:0 0 0 auto}}
+
+/* Export: compact secondary action in the scientific ranking header */
+.csv-export{display:inline-flex;align-items:center;gap:9px;min-height:39px;padding:0 13px;border:1px solid #9db6a3;background:#edf4e9;color:#2c6647;white-space:nowrap;font:600 11px "DM Sans",sans-serif;transition:background .16s}
+.csv-export:hover{background:#dbeada}
+.csv-export:focus-visible{outline:3px solid #d9855a;outline-offset:2px}
+@media(max-width:620px){.csv-export{margin-top:12px;margin-bottom:15px}}
