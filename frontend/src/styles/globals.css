@@ -214,3 +214,16 @@ h1 em,h2 em{font:400 1em "DM Serif Display",serif;letter-spacing:-2px;color:#d78
 .comparator-note{color:#91a392;font:10px/1.8 "DM Mono",monospace;margin-top:14px}
 @media(max-width:1220px){.chart-tools{align-items:flex-start}.decision-metric{padding:18px}.decision-header{padding:18px}}
 @media(max-width:620px){.decision-metrics{grid-template-columns:1fr}.decision-metric+.decision-metric{border-left:none;border-top:1px solid #dce6d9}.decision-metric{padding:18px}.decision-header{padding:18px}.decision-limit{padding:12px 18px}.comparator-grid{grid-template-columns:1fr}.comparator-side+.comparator-side{border-left:0;border-top:1px solid #dbe5d8}.comparator-side{padding:18px}.chart-sort{width:100%;justify-content:space-between}.chart-tools .chart-legend{flex-wrap:wrap}}
+
+/* Additive-only energy decomposition in the expanded model line */
+.energy-breakdown{grid-column:1/-1;margin-top:6px;border-top:1px solid #cbdccb;padding-top:16px}
+.breakdown-title{font:9px "DM Mono",monospace;color:#618265;letter-spacing:1px}
+.breakdown-bar{height:13px;background:#dae5d9;display:flex;overflow:hidden;margin:14px 0}
+.breakdown-bar>span{height:100%;display:block;flex:0 0 auto}
+.breakdown-base{background:#e0a27e}.breakdown-input{background:#739a7a}.breakdown-output{background:#2b6147}
+.breakdown-legend{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.breakdown-legend>span{display:block;color:#7c9580;font:9px/1.6 "DM Mono",monospace}
+.breakdown-legend i{width:8px;height:8px;display:inline-block;margin-right:5px}
+.breakdown-legend strong{display:block;font:600 12px "DM Sans",sans-serif;color:#355942;margin:4px 0 0}
+.breakdown-footnote,.breakdown-unavailable{grid-column:1/-1;font:10px/1.6 "DM Sans",sans-serif;color:#8a9b8c;margin:9px 0 0}
+@media(max-width:620px){.breakdown-legend{grid-template-columns:1fr;gap:10px}.breakdown-legend>span{display:flex;gap:8px;align-items:center}.breakdown-legend strong{margin:0 0 0 auto}}
