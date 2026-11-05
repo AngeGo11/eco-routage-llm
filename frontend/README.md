@@ -54,6 +54,22 @@ frontend/
     styles/globals.css
 ```
 
+
+## Sprint performance et export (novembre 2026)
+
+- **Cache de calibration** : l'API ajoute `--calibration-cache` au moteur. Après la première exécution, les facteurs de modèle et les statistiques de réactions sont réutilisés pour les prompts suivants. Le cache est recalculé lorsque les fichiers Parquet, le code de l'estimateur ou les paramètres concernés changent. Les fichiers sont enregistrés dans `.cache/eco-routage/` (ignoré par Git). Supprimer ce dossier pour forcer un nouveau calcul. Ne jamais y placer de fichiers pickle téléchargés ou non fiables.
+- **Premier calcul** : il nécessite toujours la lecture et l'ajustement des grandes données CompareAI ; il peut rester long. Le cache améliore les calculs suivants mais ne garantit pas une réponse instantanée et n'est pas un cache de réponse LLM.
+- **Export CSV** : le bouton « Exporter CSV » apparaît après le calcul. Il exporte **les modèles retournés et affichés**, leurs valeurs brutes en Wh, les métriques historiques et la méthode/sources de calcul. Le nombre total de candidats figure dans une colonne distincte. Le CSV UTF-8 (BOM, séparateur `;`) n'inclut pas le prompt. Les champs texte sont échappés pour éviter les formules injectées dans un tableur.
+- **Validation navigateur** : la CI exécute Playwright avec Chromium sur écrans ordinateur et mobile, en utilisant des réponses API **simulées exclusivement dans les tests**. Les captures d'écran et traces sont enregistrées comme artefacts GitHub Actions pendant 7 jours. Ces simulations ne sont jamais affichées dans l'application de production.
+
+```bash
+cd frontend
+npm test           # tests unitaires Vitest
+npm run test:e2e   # Playwright (nécessite : npx playwright install chromium)
+```
+
+La seule validation complète du calcul réel nécessite les données CompareAI locales non publiques ; aucun test d'intégration sur ce jeu de données n'est effectué en CI.
+
 ## Vérifications
 
 ```bash
