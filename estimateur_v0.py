@@ -608,7 +608,10 @@ def main():
 
     rows = None
     def build_calibration():
+        nonlocal rows
         raw_rows = load_rows()
+        if args.eval:
+            rows = raw_rows
         metadata = load_model_metadata()
         (fit_alpha, calibrated_factors, calibrated_buckets, calibrated_model_buckets,
          global_median, size_regression, reg_data) = fit(
@@ -670,7 +673,8 @@ def main():
     print(f"alpha moyen calibre : {alpha:.3f} token de sortie / token d'entree")
     print(f"Source active pour la recommandation : {args.energy_source}")
     if args.eval:
-        rows = load_rows()
+        if rows is None:
+            rows = load_rows()
         baseline_results = evaluate(rows, alpha, compareai_factors, bucket_outputs,
                                      model_bucket_outputs, global_output_median)
         print("\nÉVALUATION HOLD-OUT (20 %, paires jamais vues en calibration)")
