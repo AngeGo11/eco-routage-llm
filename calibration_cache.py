@@ -51,7 +51,8 @@ def load_or_build(cache_dir: Path, namespace: str, key: str, build: Callable[[],
     try:
         fd, temporary = tempfile.mkstemp(prefix=".eco-routage-", dir=cache_dir)
         with os.fdopen(fd, "wb") as handle:
-            os.fchmod(handle.fileno(), 0o600)
+            if hasattr(os, "fchmod"):
+                os.fchmod(handle.fileno(), 0o600)
             pickle.dump(result, handle, protocol=pickle.HIGHEST_PROTOCOL)
         os.replace(temporary, path)
     except OSError:
