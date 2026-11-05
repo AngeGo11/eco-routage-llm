@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AnalysisRecord } from "./history";
-import { addSavedPair, appendRecord, HISTORY_KEY, HISTORY_LIMIT, readHistory } from "./history";
+import { addSavedPair, appendRecord, HISTORY_KEY, HISTORY_LIMIT, readHistory, removeSavedPair } from "./history";
 
 const model = (name: string) => ({ name, estimated_wh: 0.015, recommended: name === "A",
   output_tokens_est: 12, observations: 50, reaction_quality: .5, reaction_count: 60, factor_source: "test" });
@@ -25,6 +25,8 @@ describe("historique privé des analyses", () => {
     const stored = addSavedPair(input, "x", { left: "A", right: "B" });
     expect(stored[0].comparisons).toEqual([{ left: "A", right: "B" }]);
     expect(addSavedPair(stored, "x", { left: "A", right: "B" })[0].comparisons).toHaveLength(1);
+    expect(addSavedPair(stored, "x", { left: "B", right: "A" })[0].comparisons).toHaveLength(1);
+    expect(removeSavedPair(stored, "x", { left: "A", right: "B" })[0].comparisons).toHaveLength(0);
     expect(addSavedPair(stored, "x", { left: "A", right: "inconnu" })).toEqual(stored);
   });
   it("rejette les fichiers invalides et les structures inattendues", () => {
