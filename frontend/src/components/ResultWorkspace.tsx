@@ -79,7 +79,7 @@ function EmptyGraphic() {
 
 export default function ResultWorkspace({ result, loading, error, activeId, savedPairs, comparisonPreset, onSaveComparison }: Props) {
   const recommended = result?.results.find(model => model.name === result.recommended_model);
-  return <div className="results-column" id="resultats">
+  return <div className="results-column" id="resultats" tabIndex={-1}>
     <div className="page-overline"><span><span className="live-dot"/> OBSERVATOIRE DE L'IA SOBRE</span><span>ÉTUDE N° 001 / 2026</span></div>
     <div className="result-intro"><span className="eyebrow dark">LABORATOIRE D'ÉCO-ROUTAGE</span><h1>L'intelligence<br/>a un <em>coût invisible.</em></h1><p>Une question, plusieurs modèles. Explorez l'énergie qu'ils pourraient consommer et les compromis derrière chaque choix.</p></div>
     <div className="result-headline"><div><span className="eyebrow dark">01 / SYNTHÈSE DU CALCUL</span><h2>{loading ? "Analyse en cours…" : result ? "La mesure du possible." : "Votre analyse commence ici."}</h2></div><span className={result ? "result-state ready" : "result-state"}><Activity size={13}/>{result ? "ESTIMATION TERMINÉE" : loading ? "CALCUL EN COURS" : "EN ATTENTE"}</span></div>
