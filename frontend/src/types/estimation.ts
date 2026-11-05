@@ -41,5 +41,6 @@ export interface EstimateResponse {
 export interface HealthResponse {
   status: "ready" | "missing_data";
   compareai_available: boolean;
+  reactions_available: boolean;
   mlenergy_available: boolean;
 }
