@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Activity, ArrowDownRight, ArrowUpRight, BarChart3, ChevronDown, Info, Leaf, Lightbulb, LoaderCircle } from "lucide-react";
+import { Activity, ArrowDownRight, ArrowUpRight, BarChart3, ChevronDown, Download, Info, Leaf, Lightbulb, LoaderCircle } from "lucide-react";
 import type { EstimateResponse, ModelResult } from "../types/estimation";
 import { DecisionInsights, ModelComparator } from "./DecisionInsights";
 import { barRatio } from "../utils/energyInsights";
 import EnergyBreakdown from "./EnergyBreakdown";
+import { downloadResultsCsv } from "../utils/exportResults";
 
 type Props = { result: EstimateResponse | null; loading: boolean; error: string | null };
 const wh = (value: number) => new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 6, maximumSignificantDigits: 5 }).format(value);
@@ -30,7 +31,7 @@ function Chart({ result }: { result: EstimateResponse }) {
     : order === "descending" ? b.estimated_wh - a.estimated_wh : a.estimated_wh - b.estimated_wh);
   const max = Math.max(0, ...models.map(item => item.estimated_wh));
   return <section className="ranking-section" aria-labelledby="ranking-title">
-    <div className="section-title"><div><span className="eyebrow dark">02 / COMPARAISON</span><h2 id="ranking-title">Tous les chemins.<br/><em>Une autre perspective.</em></h2></div><span className="caption-tag">Wh PAR REQUÊTE</span></div>
+    <div className="section-title"><div><span className="eyebrow dark">02 / COMPARAISON</span><h2 id="ranking-title">Tous les chemins.<br/><em>Une autre perspective.</em></h2></div><button className="csv-export" type="button" onClick={() => downloadResultsCsv(result)} title="Exporter les modèles affichés en CSV"><Download size={15} aria-hidden="true"/> Exporter CSV</button></div>
     <div className="chart-tools">
       <div className="chart-legend"><span><i className="key-dot" /> Modèle recommandé</span><span><i className="key-line" /> Autres modèles</span></div>
       <label className="chart-sort" htmlFor="ranking-order">TRIER PAR <select id="ranking-order" value={order} onChange={e=>setOrder(e.target.value as typeof order)}><option value="ascending">Énergie croissante</option><option value="descending">Énergie décroissante</option><option value="name">Nom A–Z</option></select></label>
