@@ -4,3 +4,7 @@ dist/
 .env.*
 !.env.example
 *.tsbuildinfo
+
+# Browser tests
+playwright-report/
+test-results/
