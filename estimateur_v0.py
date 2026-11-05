@@ -9,7 +9,10 @@ Le modèle prédit l'énergie estimée de la réponse (pas une mesure GPU).
 from __future__ import annotations
 
 import argparse
+import json
 import math
+
+from calibration_cache import fingerprint, load_or_build
 from pathlib import Path
 
 try:
@@ -25,6 +28,7 @@ except ImportError as exc:  # pragma: no cover - aide à l'installation
 
 
 ROOT = Path(__file__).resolve().parent
+CALIBRATION_CACHE_DIR = ROOT / ".cache" / "eco-routage"
 PARQUET = ROOT / "source_données" / "compareAI" / "conversations.parquet"
 MLENERGY_PARQUET = ROOT / "source_données" / "ml-energy-v3" / "runs" / "llm.parquet"
 MLENERGY_CROSSWALK = ROOT / "liens_modeles_compareai_ml_energy.csv"
@@ -578,6 +582,8 @@ def main():
     parser = argparse.ArgumentParser(description="Estimateur V0/V0.1/V0.2 énergie / éco-routage")
     parser.add_argument("--eval", action="store_true", help="évaluer sur le split test figé")
     parser.add_argument("--prompt", help="estimer l'énergie pour ce prompt")
+    parser.add_argument("--json-line", action="store_true", help="ajouter une ligne JSON structurée pour l’API")
+    parser.add_argument("--calibration-cache", action="store_true", help="utiliser le cache privé des calibrations (mode local uniquement)")
     parser.add_argument("--top", type=int, default=5, help="nombre de modèles à afficher")
     parser.add_argument("--energy-source", choices=("compareai", "mlenergy"), default="compareai",
                         help="source des facteurs énergie pour la recommandation (défaut : compareai)")
@@ -600,17 +606,53 @@ def main():
     if not args.eval and args.prompt is None:
         parser.error("indiquez --eval et/ou --prompt")
 
-    rows = load_rows()
-    metadata = load_model_metadata()
+    rows = None
+    def build_calibration():
+        nonlocal rows
+        raw_rows = load_rows()
+        if args.eval:
+            rows = raw_rows
+        metadata = load_model_metadata()
+        (fit_alpha, calibrated_factors, calibrated_buckets, calibrated_model_buckets,
+         global_median, size_regression, reg_data) = fit(
+            raw_rows, metadata, args.min_observations, args.min_model_bucket_observations
+        )
+        return {
+            "valid_rows": len(raw_rows),
+            "alpha": fit_alpha,
+            "compareai_factors": calibrated_factors,
+            "bucket_outputs": calibrated_buckets,
+            "model_bucket_outputs": calibrated_model_buckets,
+            "global_output_median": global_median,
+            "reg_data": reg_data,
+            "input_output_terms": fit_input_output_energy(
+                raw_rows, calibrated_factors, args.min_observations
+            ),
+            "power_terms": fit_powerlaw_energy(
+                raw_rows, calibrated_factors, args.min_observations
+            ),
+            "mlenergy_stats": load_mlenergy_factors(),
+        }
+
+    if args.calibration_cache and not args.eval:
+        cache_key = fingerprint(
+            [PARQUET, MLENERGY_PARQUET, MLENERGY_CROSSWALK, Path(__file__).resolve()],
+            {"min_observations": args.min_observations,
+             "min_model_bucket_observations": args.min_model_bucket_observations}
+        )
+        calibration = load_or_build(
+            CALIBRATION_CACHE_DIR, "calibration", cache_key, build_calibration
+        )
+    else:
+        calibration = build_calibration()
+
     (alpha, compareai_factors, bucket_outputs, model_bucket_outputs,
-     global_output_median, size_regression, reg_data) = fit(
-        rows, metadata, args.min_observations, args.min_model_bucket_observations
+     global_output_median, reg_data, input_output_terms, power_terms, mlenergy_stats) = (
+        calibration["alpha"], calibration["compareai_factors"],
+        calibration["bucket_outputs"], calibration["model_bucket_outputs"],
+        calibration["global_output_median"], calibration["reg_data"],
+        calibration["input_output_terms"], calibration["power_terms"], calibration["mlenergy_stats"]
     )
-    input_output_terms = fit_input_output_energy(
-        rows, compareai_factors, args.min_observations
-    )
-    power_terms = fit_powerlaw_energy(rows, compareai_factors, args.min_observations)
-    mlenergy_stats = load_mlenergy_factors()
     mlenergy_factors = (inject_mlenergy_factors(compareai_factors, mlenergy_stats)
                         if mlenergy_stats is not None else None)
     if args.energy_source == "mlenergy" and mlenergy_factors is None:
@@ -621,7 +663,7 @@ def main():
         factors = mlenergy_factors[mlenergy_factors.mlenergy_kwh_per_output_token.notna()].copy()
     else:
         factors = compareai_factors
-    print(f"Données valides : {len(rows):,} réponses | modèles candidats : {len(factors)}")
+    print(f"Données valides : {calibration['valid_rows']:,} réponses | modèles candidats : {len(factors)}")
     print(f"Facteurs de base CompareAI observés : {(compareai_factors.factor_source == 'CompareAI observé').sum()} | fallback paramètres : {(compareai_factors.factor_source == 'fallback paramètres').sum()}")
     if mlenergy_stats is not None:
         injected = mlenergy_factors.factor_source.eq("ML.ENERGY mesuré (médiane configs)").sum()
@@ -631,6 +673,8 @@ def main():
     print(f"alpha moyen calibre : {alpha:.3f} token de sortie / token d'entree")
     print(f"Source active pour la recommandation : {args.energy_source}")
     if args.eval:
+        if rows is None:
+            rows = load_rows()
         baseline_results = evaluate(rows, alpha, compareai_factors, bucket_outputs,
                                      model_bucket_outputs, global_output_median)
         print("\nÉVALUATION HOLD-OUT (20 %, paires jamais vues en calibration)")
@@ -771,9 +815,24 @@ def main():
         if args.energy_source == "mlenergy":
             ranking["config_p10_wh"] = ranking.mlenergy_p10_j * ranking.output_tokens_est / 3600
             ranking["config_p90_wh"] = ranking.mlenergy_p90_j * ranking.output_tokens_est / 3600
-        reaction_data = load_reactions()
-        ratings, eligible = fit_reaction_quality(reaction_data, args.min_reactions,
-                                                 args.reaction_threshold)
+        def build_reaction_scores():
+            return fit_reaction_quality(
+                load_reactions(), args.min_reactions, args.reaction_threshold
+            )
+
+        if args.calibration_cache:
+            reaction_key = fingerprint(
+                [ROOT / "source_données" / "compareAI" / "reactions.parquet",
+                 Path(__file__).resolve()],
+                {"min_reactions": args.min_reactions,
+                 "reaction_threshold": args.reaction_threshold}
+            )
+            ratings, eligible = load_or_build(
+                CALIBRATION_CACHE_DIR, "reactions", reaction_key,
+                build_reaction_scores
+            )
+        else:
+            ratings, eligible = build_reaction_scores()
         ranking["reaction_quality"] = ranking.index.map(ratings["mean"])
         ranking["reaction_count"] = ranking.index.map(ratings["count"]).fillna(0)
         ranking = ranking.sort_values("estimated_wh")
@@ -797,6 +856,24 @@ def main():
             display = pd.concat([display, ranking.loc[[chosen_model]]])
         display = display.copy()
         display["recommended"] = display.index == chosen_model
+        if args.json_line:
+            # Contrat machine lisible ; la sortie CLI historique reste inchangée par défaut.
+            columns = ["estimated_wh", "output_tokens_est", "observations",
+                       "factor_source", "reaction_quality", "reaction_count", "recommended",
+                       "config_p10_wh", "config_p90_wh", "input_exponent", "output_exponent",
+                       "input_energy_wh", "output_energy_wh", "base_energy_wh"]
+            frame = display.reset_index().rename(columns={"model": "name"})
+            record_columns = ["name"] + [col for col in columns if col in frame.columns]
+            payload = {
+                "energy_source": args.energy_source,
+                "energy_model": "output-only" if args.energy_source == "mlenergy" else args.energy_model,
+                "input_tokens": int(input_tokens),
+                "models_evaluated": int(len(ranking)),
+                "recommended_model": str(chosen_model),
+                "quality_filter_applied": bool(len(eligible_ranking)),
+                "results": json.loads(frame[record_columns].to_json(orient="records")),
+            }
+            print("ECO_ROUTAGE_JSON:" + json.dumps(payload, ensure_ascii=False, allow_nan=False))
         display_columns = ["estimated_wh", "output_tokens_est", "observations", "factor_source", "reaction_quality", "reaction_count", "recommended"]
         rename_columns = {"estimated_wh": "énergie estimée (Wh)", "base_energy_wh": "base/requête (Wh)",
                           "input_energy_wh": "entrée estimée (Wh)",

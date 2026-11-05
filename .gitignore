@@ -15,3 +15,6 @@ source_données/externe_hf/
 .pytest_cache/
 .ipynb_checkpoints/
 *.parquet.bak
+
+# Cache privé régénérable du moteur
+.cache/
