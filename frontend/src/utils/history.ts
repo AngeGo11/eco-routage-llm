@@ -55,7 +55,15 @@ export function addSavedPair(records: AnalysisRecord[], id: string, pair: SavedP
   return records.map(item => {
     if (item.id !== id || !item.result.results.some(m => m.name === pair.left)
       || !item.result.results.some(m => m.name === pair.right)) return item;
-    if (item.comparisons.some(old => old.left === pair.left && old.right === pair.right)) return item;
+    if (item.comparisons.some(old => (old.left === pair.left && old.right === pair.right)
+      || (old.left === pair.right && old.right === pair.left))) return item;
     return { ...item, comparisons: [pair, ...item.comparisons].slice(0, PAIRS_LIMIT) };
   });
+}
+
+export function removeSavedPair(records: AnalysisRecord[], id: string, pair: SavedPair): AnalysisRecord[] {
+  return records.map(item => item.id === id
+    ? { ...item, comparisons: item.comparisons.filter(old =>
+      !(old.left === pair.left && old.right === pair.right)) }
+    : item);
 }
