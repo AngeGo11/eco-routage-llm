@@ -87,6 +87,10 @@ test("sauvegarder et restaurer une comparaison", async ({page}) => {
   await dialog.getByRole("button",{name:/Modèle A.*vs.*Modèle B/i}).click();
   await expect(page.getByRole("combobox",{name:"MODÈLE A"})).toHaveValue("Modèle A");
   await expect(page.getByRole("combobox",{name:"MODÈLE B"})).toHaveValue("Modèle B");
+  await page.getByRole("button",{name:/Historique/i}).click();
+  const opened = page.getByRole("dialog",{name:/Vos analyses/i});
+  await opened.getByRole("button",{name:/Supprimer la comparaison Modèle A contre Modèle B/i}).click();
+  await expect(opened.getByRole("button",{name:/Supprimer la comparaison/i})).toHaveCount(0);
 });
 
 test("la persistance ne fonctionne qu'après consentement et se désactive sans laisser de copie", async ({page}) => {
